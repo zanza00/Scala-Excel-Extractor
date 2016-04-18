@@ -82,13 +82,14 @@ object excel {
         case Cell.CELL_TYPE_NUMERIC =>
           result = String.valueOf(indexCell.getNumericCellValue)
         case Cell.CELL_TYPE_FORMULA =>
-          val i: Int = indexCell.getCachedFormulaResultType
-          if (i == Cell.CELL_TYPE_NUMERIC) {
-            result = String.valueOf(indexCell.getNumericCellValue)
-          }
-          else if (i == Cell.CELL_TYPE_STRING) {
-            result = indexCell.getStringCellValue filterNot charsToReject
-            result = "'" + result + "'"
+          indexCell.getCachedFormulaResultType match {
+            case Cell.CELL_TYPE_NUMERIC =>
+              result = String.valueOf(indexCell.getNumericCellValue)
+            case Cell.CELL_TYPE_STRING =>
+              result = indexCell.getStringCellValue filterNot charsToReject
+              result = "'" + result + "'"
+            case _ =>
+              result = NULL
           }
         case Cell.CELL_TYPE_BLANK =>
           result = NULL
