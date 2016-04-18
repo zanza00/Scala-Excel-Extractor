@@ -1,6 +1,7 @@
-import java.io.{File, FileInputStream, PrintWriter}
+package zanzapla
 
-import org.apache.commons.lang3.StringUtils
+import java.io.{File, FileInputStream, PrintWriter}
+import java.time.LocalDate
 import org.apache.poi.ss.usermodel.{Cell, Row, WorkbookFactory}
 import org.apache.poi.ss.util.CellReference
 
@@ -11,14 +12,15 @@ class ExcelExtractor {
 }
 
 /**
- * Created by @Zanza00 on 18/09/2015.
- *
- * A simple excel extractor, made in Scala
- */
+  * Created by @Zanza00 on 18/09/2015.
+  *
+  * A simple excel extractor, made in Scala
+  */
 
 
 object excel {
-  val NULL: String = "null value"
+  val NULL: String = "NULL"
+  val charsToReject = "\t'".toSet
 
   def main(args: Array[String]): Unit = {
     val excelFileName = "Test1.xlsx"
@@ -26,7 +28,7 @@ object excel {
 
     val workbook = WorkbookFactory create excelFile
 
-    val outFileName = "text.txt"
+    val outFileName = "output.sql"
     val outfile = new PrintWriter(outFileName, "UTF-8")
 
     val sheet = workbook getSheetAt 0
@@ -36,22 +38,32 @@ object excel {
     val firstColumn = CellReference convertColStringToIndex "A"
     val lastColumn = CellReference convertColStringToIndex "E"
 
-    var colAllListBuffer = new ListBuffer[String]
+
+    outfile.println("--Excel 2 txt using Scala")
+    outfile.println("--Excel file: " + excelFileName)
+    outfile.println("--Executed on: " + LocalDate.now())
 
     for (rowNum <- 1 to rowEnd) {
+      var colAllListBuffer = new ListBuffer[String]
+      colAllListBuffer += "INSERT INTO TABLE_NAME (NUMBERS, BIG_NUMBERS, DECIMALS, STRINGS, LANGUAGES, FIXED_VALUE) VALUES("
       val row = sheet getRow rowNum
       for (colNum <- firstColumn to lastColumn) {
         val cell = row.getCell(colNum, Row.RETURN_NULL_AND_BLANK)
         colAllListBuffer += extractCellValue(cell)
+
+        colAllListBuffer += ","
       }
+      colAllListBuffer += "'FIXED')"
+
+      val columnValueList = colAllListBuffer.toList
+      columnValueList.foreach {
+        outfile.print
+      }
+
+      outfile.println(";")
+
     }
 
-    val columnValueList = colAllListBuffer.toList
-    outfile.println("Excel 2 txt using Scala")
-
-    columnValueList.foreach {
-      outfile.println
-    }
 
     //close every file
     excelFile.close()
@@ -65,18 +77,18 @@ object excel {
     if (indexCell != null) {
       indexCell.getCellType match {
         case Cell.CELL_TYPE_STRING =>
-          result = indexCell.getStringCellValue
-          result = StringUtils.replace(result, "'", "''")
+          result = indexCell.getStringCellValue filterNot charsToReject
+          result = "'" + result + "'"
         case Cell.CELL_TYPE_NUMERIC =>
-          result = StringUtils.removeEnd(String.valueOf(indexCell.getNumericCellValue), ".0")
+          result = String.valueOf(indexCell.getNumericCellValue)
         case Cell.CELL_TYPE_FORMULA =>
           val i: Int = indexCell.getCachedFormulaResultType
           if (i == Cell.CELL_TYPE_NUMERIC) {
-            result = StringUtils.removeEnd(String.valueOf(indexCell.getNumericCellValue), ".0")
+            result = String.valueOf(indexCell.getNumericCellValue)
           }
           else if (i == Cell.CELL_TYPE_STRING) {
-            result = indexCell.getStringCellValue
-            result = StringUtils.replace(result, "'", "''")
+            result = indexCell.getStringCellValue filterNot charsToReject
+            result = "'" + result + "'"
           }
         case Cell.CELL_TYPE_BLANK =>
           result = NULL
@@ -84,7 +96,6 @@ object excel {
           result = NULL
       }
     }
-    result = StringUtils upperCase result
-    result
+    result.toUpperCase
   }
 }
